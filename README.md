@@ -280,7 +280,7 @@ The output is in **wide format**: one row per cell barcode, with primary TRA and
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `barcode` | chr | Cell barcode (unique cell identifier). In batch mode, prefixed with sample ID (e.g., `CTRL_AAACCTGAGAAACCGC-1`). |
+| `barcode` | chr | Cell barcode (unique cell identifier). In batch mode, suffixed with sample ID (e.g., `AAACCTGAGAAACCGC-1_CTRL`). |
 | `chain_prim_TRA` | chr | Always `"TRA"` if a primary TRA chain exists, otherwise `NA` |
 | `v_gene_prim_TRA` | chr | TRA V gene (e.g., `TRAV6-1`) |
 | `d_gene_prim_TRA` | chr | TRA D gene — always `NA` (α locus has no D segment) |
@@ -403,7 +403,7 @@ results <- run_tcr_pipeline_batch(
 
 ### How batch mode works
 
-1. **Barcode prefixing:** Each barcode is prefixed with the sample name from the list key (e.g., `CTRL_AAACCTGAGAAACCGC-1`). This is **critical** — 10x barcodes come from a shared ~3.4M whitelist, so the same barcode sequence in different runs refers to different physical cells. Without prefixing, two cells from different samples would be treated as the same cell.
+1. **Barcode suffixing:** Each barcode is suffixed with the sample name from the list key (e.g., `AAACCTGAGAAACCGC-1_CTRL`). This is **critical** — 10x barcodes come from a shared ~3.4M whitelist, so the same barcode sequence in different runs refers to different physical cells. Without suffixing, two cells from different samples would be treated as the same cell.
 
 2. **Combined analysis:** All contigs are merged into a single data.frame with a `sample` column, enabling:
    - Cross-sample clonotype overlap analysis

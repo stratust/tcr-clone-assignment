@@ -463,10 +463,10 @@ load_contigs_batch <- function(sample_list,
       df <- df %>% rename(reads = read_count) %>% filter(reads >= min_read)
     }
 
-    # Prefix barcode with sample ID to prevent collisions across samples
+    # Suffix barcode with sample ID to prevent collisions across samples
     # 10x barcodes come from a shared ~3.4M whitelist — same sequence in
     # different runs = different physical cells
-    df$barcode <- paste0(sample_id, "_", df$barcode)
+    df$barcode <- paste0(df$barcode, "_", sample_id)
     df$sample  <- sample_id
 
     df
