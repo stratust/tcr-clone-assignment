@@ -128,7 +128,7 @@ rank_chains <- function(contigs) {
 # 3. FILTER DUAL TCR BY QUALITY THRESHOLD
 # =============================================================================
 
-filter_dual_tcr <- function(primary, secondary, min_ratio = 0.1, min_abs_umi = 5) {
+filter_dual_tcr <- function(primary, secondary, min_ratio = 0.1, min_abs_umi = 1) {
   message(sprintf(">>> Filtering dual-TCR cells (min_ratio=%.0f%%, min_abs_umi=%d)...",
                   min_ratio * 100, min_abs_umi))
 
@@ -445,7 +445,7 @@ load_contigs_batch <- function(sample_list,
 assign_clones <- function(contigs,
                           clone_def   = "TRB",
                           min_ratio   = 0.1,
-                          min_abs_umi = 5) {
+                          min_abs_umi = 1) {
   # Core function: takes filtered contigs (from load_contigs or load_contigs_batch),
   # assigns clonotypes, returns a single data.frame.
   # No files written, no plots generated. Pure transformation.
@@ -475,7 +475,7 @@ run_tcr_pipeline <- function(
     min_umi        = 1,
     min_read       = 1,
     min_ratio      = 0.1,
-    min_abs_umi    = 5,
+    min_abs_umi    = 1,
     make_plots     = TRUE
 ) {
   dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
@@ -562,7 +562,7 @@ run_tcr_pipeline_batch <- function(
     min_umi        = 1,
     min_read       = 1,
     min_ratio      = 0.1,
-    min_abs_umi    = 5,
+    min_abs_umi    = 1,
     make_plots     = TRUE
 ) {
   # sample_list: named list where names = sample IDs, values = paths to CSVs
