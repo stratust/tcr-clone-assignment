@@ -14,10 +14,13 @@ library(igraph)
 # =============================================================================
 
 load_contigs <- function(contig_csv,
-                         min_umi = 5,
-                         min_read = 20) {
+                         min_umi = 1,
+                         min_read = 1) {
   # contig_csv: path to filtered_contig_annotations.csv (Cell Ranger multi/vdj)
   #             or all_contig_annotations.csv (Cell Ranger vdj only)
+  # Note: filtered_contig_annotations.csv is already QC'd by Cell Ranger.
+  #       Default min_umi=1/min_read=1 = no additional filtering.
+  #       Raise thresholds only if using all_contig_annotations.csv.
   message(">>> Loading contig annotations: ", contig_csv)
 
   contigs <- read.csv(contig_csv, stringsAsFactors = FALSE)
@@ -374,8 +377,8 @@ to_screpertoire <- function(contigs) {
 # =============================================================================
 
 load_contigs_batch <- function(sample_list,
-                               min_umi = 5,
-                               min_read = 20) {
+                               min_umi = 1,
+                               min_read = 1) {
   # sample_list: named list of paths to filtered_contig_annotations.csv
   #   e.g. list(CTRL = "ctrl/vdj_t/outs/filtered_contig_annotations.csv",
   #             PATIENT = "patient/vdj_t/outs/filtered_contig_annotations.csv")
@@ -469,8 +472,8 @@ run_tcr_pipeline <- function(
     contig_csv,
     output_dir     = "tcr_results",
     clone_def      = "TRB",
-    min_umi        = 5,
-    min_read       = 20,
+    min_umi        = 1,
+    min_read       = 1,
     min_ratio      = 0.1,
     min_abs_umi    = 5,
     make_plots     = TRUE
@@ -556,8 +559,8 @@ run_tcr_pipeline_batch <- function(
     sample_list,
     output_dir     = "tcr_results_batch",
     clone_def      = "TRB",
-    min_umi        = 5,
-    min_read       = 20,
+    min_umi        = 1,
+    min_read       = 1,
     min_ratio      = 0.1,
     min_abs_umi    = 5,
     make_plots     = TRUE
