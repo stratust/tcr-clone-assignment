@@ -358,7 +358,90 @@ to_screpertoire <- function(contigs) {
 
 
 # =============================================================================
-# 8. MAIN PIPELINE
+# 7b. BATCH LOADING (multiple samples — barcode de-duplication)
+# =============================================================================
+
+load_contigs_batch <- function(sample_list,
+                               min_umi = 3,
+                               min_read = 10) {
+  # sample_list: named list of paths to all_contig_annotations.csv
+  #   e.g. list(CTRL = "ctrl/vdj_t/outs/all_contig_annotations.csv",
+  #             PATIENT = "patient/vdj_t/outs/all_contig_annotations.csv")
+  #
+  # Returns a single data.frame with barcodes prefixed by sample ID
+  # to avoid collisions when multiple samples share the same 10x whitelist.
+
+  message(">>> Loading and combining ", length(sample_list), " samples...")
+
+  all_contigs <- lapply(names(sample_list), function(sample_id) {
+    message("  - ", sample_id, ": ", sample_list[[sample_id]])
+
+    df <- read.csv(sample_list[[sample_id]], stringsAsFactors = FALSE)
+
+    # Basic filtering
+    df <- df %>%
+      filter(is_cell == TRUE) %>%
+      filter(high_confidence == TRUE) %>%
+      filter(productive == TRUE) %>%
+      filter(chain %in% c("TRA", "TRB"))
+
+    # Normalize UMI/read column names
+    if ("umis" %in% colnames(df)) {
+      df <- df %>% filter(umis >= min_umi)
+    } else if ("umi_count" %in% colnames(df)) {
+      df <- df %>% rename(umis = umi_count) %>% filter(umis >= min_umi)
+    }
+
+    if ("reads" %in% colnames(df)) {
+      df <- df %>% filter(reads >= min_read)
+    } else if ("read_count" %in% colnames(df)) {
+      df <- df %>% rename(reads = read_count) %>% filter(reads >= min_read)
+    }
+
+    # Prefix barcode with sample ID to prevent collisions across samples
+    # 10x barcodes come from a shared ~3.4M whitelist — same sequence in
+    # different runs = different physical cells
+    df$barcode <- paste0(sample_id, "_", df$barcode)
+    df$sample  <- sample_id
+
+    df
+  }) |> dplyr::bind_rows()
+
+  message(sprintf("  Combined: %d productive contigs from %d unique cell barcodes",
+                  nrow(all_contigs), length(unique(all_contigs$barcode))))
+
+  return(all_contigs)
+}
+
+
+# =============================================================================
+# 7c. CORE FUNCTION — assign clones to a data.frame (no files, no plots)
+# =============================================================================
+
+assign_clones <- function(contigs,
+                          clone_def   = "TRB",
+                          min_ratio   = 0.1,
+                          min_abs_umi = 5) {
+  # Core function: takes filtered contigs (from load_contigs or load_contigs_batch),
+  # assigns clonotypes, returns a single data.frame.
+  # No files written, no plots generated. Pure transformation.
+  #
+  # Input:  contigs data.frame with columns: barcode, chain, v_gene, j_gene,
+  #         cdr3, cdr3_nt, umis, productive, high_confidence, is_cell
+  # Output: data.frame with one row per barcode + clone_id column
+
+  ranked        <- rank_chains(contigs)
+  dual_filtered <- filter_dual_tcr(ranked$primary, ranked$secondary,
+                                   min_ratio = min_ratio, min_abs_umi = min_abs_umi)
+  clones        <- build_clones(ranked$primary, dual_filtered,
+                                clone_definition = clone_def)
+
+  return(clones$cells)
+}
+
+
+# =============================================================================
+# 8. MAIN PIPELINE (single sample)
 # =============================================================================
 
 run_tcr_pipeline <- function(
@@ -445,7 +528,191 @@ run_tcr_pipeline <- function(
 }
 
 # =============================================================================
-# USAGE
+# 8b. MAIN PIPELINE (batch — multiple samples combined)
+# =============================================================================
+
+run_tcr_pipeline_batch <- function(
+    sample_list,
+    output_dir     = "tcr_results_batch",
+    clone_def      = "TRB",
+    min_umi        = 3,
+    min_read       = 10,
+    min_ratio      = 0.1,
+    min_abs_umi    = 5,
+    make_plots     = TRUE
+) {
+  # sample_list: named list where names = sample IDs, values = paths to CSVs
+  #   e.g. list(CTRL = "ctrl/outs/all_contig_annotations.csv",
+  #             PATIENT = "patient/outs/all_contig_annotations.csv")
+  #
+  # Combines all samples into a single analysis with unique barcodes
+  # (prefixed by sample ID), enabling cross-sample clonotype comparison.
+
+  dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
+  message("=" |> strrep(70))
+  message("  TCR Clone Assignment Pipeline — BATCH MODE")
+  message("  Samples: ", paste(names(sample_list), collapse = ", "))
+  message("  Clone definition: ", clone_def)
+  message("=" |> strrep(70))
+  message("")
+
+  # Step 1: Load and combine samples with unique barcodes
+  contigs <- load_contigs_batch(sample_list,
+                                min_umi  = min_umi,
+                                min_read = min_read)
+
+  # Step 2: Rank chains (operates on combined data)
+  ranked <- rank_chains(contigs)
+
+  # Step 3: Filter dual-TCR
+  dual_filtered <- filter_dual_tcr(ranked$primary,
+                                   ranked$secondary,
+                                   min_ratio   = min_ratio,
+                                   min_abs_umi = min_abs_umi)
+
+  # Step 4: Build clones (combined)
+  clones <- build_clones(ranked$primary, dual_filtered,
+                         clone_definition = clone_def)
+
+  # Step 5: QC
+  qc <- qc_summary(clones$cells, ranked$n_chains, clones$clonotypes)
+
+  # Step 5b: Per-sample breakdown
+  message("")
+  message(">>> Per-sample clonotype summary:")
+  per_sample <- clones$cells %>%
+    group_by(sample) %>%
+    summarise(
+      n_cells    = n(),
+      n_clones   = n_distinct(clone_id),
+      top_clone_n = max(table(clone_id)),
+      top_clone_pct = round(max(table(clone_id)) / n() * 100, 1),
+      .groups = "drop"
+    ) %>%
+    arrange(desc(n_cells))
+
+  print(per_sample)
+
+  # Step 6: Cross-sample overlap analysis
+  message("")
+  message(">>> Cross-sample clonotype overlap:")
+  overlap <- clones$cells %>%
+    distinct(sample, clone_id) %>%
+    group_by(clone_id) %>%
+    summarise(
+      n_samples = n_distinct(sample),
+      samples   = paste(sort(unique(sample)), collapse = ", "),
+      .groups   = "drop"
+    ) %>%
+    filter(n_samples >= 2) %>%
+    arrange(desc(n_samples))
+
+  message(sprintf("  %d clonotypes shared across 2+ samples",
+                  nrow(overlap)))
+  if (nrow(overlap) > 0) {
+    message("  Top shared clonotypes:")
+    print(head(overlap, 10))
+  }
+
+  # Step 7: Plots
+  if (make_plots) {
+    message("")
+    message(">>> Generating plots...")
+
+    # Standard plots
+    p1 <- plot_clone_size_dist(clones$clonotypes)
+    p2 <- plot_chain_status(ranked$n_chains)
+    p3 <- plot_dual_umi_ratio(dual_filtered)
+
+    ggsave(file.path(output_dir, "clone_size_distribution.pdf"), p1,
+           width = 8, height = 10)
+    ggsave(file.path(output_dir, "chain_status_pie.pdf"), p2,
+           width = 6, height = 6)
+    ggsave(file.path(output_dir, "dual_umi_ratio.pdf"), p3,
+           width = 8, height = 5)
+
+    # Batch-specific: per-sample clone counts
+    p4 <- ggplot(per_sample, aes(x = reorder(sample, -n_cells), y = n_cells)) +
+      geom_col(fill = "steelblue", alpha = 0.8) +
+      labs(
+        title    = "Cells per Sample",
+        x        = "Sample",
+        y        = "Number of cells"
+      ) +
+      theme_bw(base_size = 11) +
+      theme(plot.title = element_text(face = "bold"))
+
+    # Batch-specific: clonotype diversity per sample
+    p5 <- ggplot(per_sample, aes(x = reorder(sample, -n_clones), y = n_clones)) +
+      geom_col(fill = "darkorange", alpha = 0.8) +
+      labs(
+        title    = "Unique Clonotypes per Sample",
+        x        = "Sample",
+        y        = "Number of clonotypes"
+      ) +
+      theme_bw(base_size = 11) +
+      theme(plot.title = element_text(face = "bold"))
+
+    # Batch-specific: top clone expansion per sample
+    p6 <- ggplot(per_sample, aes(x = reorder(sample, -top_clone_pct), y = top_clone_pct)) +
+      geom_col(fill = "#d73027", alpha = 0.8) +
+      labs(
+        title    = "Largest Clone per Sample (% of cells)",
+        x        = "Sample",
+        y        = "Top clone size (%)"
+      ) +
+      theme_bw(base_size = 11) +
+      theme(plot.title = element_text(face = "bold"))
+
+    ggsave(file.path(output_dir, "batch_cells_per_sample.pdf"), p4,
+           width = 6, height = 4)
+    ggsave(file.path(output_dir, "batch_clonotypes_per_sample.pdf"), p5,
+           width = 6, height = 4)
+    ggsave(file.path(output_dir, "batch_top_clone_expansion.pdf"), p6,
+           width = 6, height = 4)
+  }
+
+  # Step 8: Save outputs
+  message("")
+  message(">>> Saving outputs...")
+  write.csv(clones$cells,
+            file.path(output_dir, "tcr_cells_with_clones.csv"), row.names = FALSE)
+  write.csv(clones$clonotypes,
+            file.path(output_dir, "clonotype_table.csv"), row.names = FALSE)
+  write.csv(dual_filtered,
+            file.path(output_dir, "dual_chain_filtered.csv"), row.names = FALSE)
+  write.csv(to_screpertoire(contigs),
+            file.path(output_dir, "contigs_screpertoire_format.csv"), row.names = FALSE)
+  write.csv(per_sample,
+            file.path(output_dir, "per_sample_summary.csv"), row.names = FALSE)
+  write.csv(overlap,
+            file.path(output_dir, "cross_sample_overlap.csv"), row.names = FALSE)
+
+  message("")
+  message("Done! Outputs saved to: ", output_dir, "/")
+  message("  - tcr_cells_with_clones.csv       (main table: barcode x clonotype)")
+  message("  - clonotype_table.csv              (clone frequencies)")
+  message("  - dual_chain_filtered.csv          (trusted dual-TCR annotations)")
+  message("  - contigs_screpertoire_format.csv  (for scRepertoire)")
+  message("  - per_sample_summary.csv           (per-sample stats)")
+  message("  - cross_sample_overlap.csv         (shared clonotypes)")
+
+  return(list(
+    contigs       = contigs,
+    ranked        = ranked,
+    dual_filtered = dual_filtered,
+    cells         = clones$cells,
+    clonotypes    = clones$clonotypes,
+    per_sample    = per_sample,
+    overlap       = overlap,
+    qc            = qc
+  ))
+}
+
+
+# =============================================================================
+# 9. USAGE
 # =============================================================================
 
 # Single sample:
@@ -460,15 +727,22 @@ run_tcr_pipeline <- function(
 #   make_plots     = TRUE
 # )
 #
-# Multiple samples (batch):
+# Multiple samples — BATCH MODE (cross-sample comparison):
 # samples <- list(
-#   sample1 = "sample1/vdj_t/outs/all_contig_annotations.csv",
-#   sample2 = "sample2/vdj_t/outs/all_contig_annotations.csv"
+#   CTRL    = "ctrl/vdj_t/outs/all_contig_annotations.csv",
+#   PATIENT = "patient/vdj_t/outs/all_contig_annotations.csv"
 # )
-# all_results <- lapply(names(samples), function(s) {
-#   run_tcr_pipeline(samples[[s]], output_dir = paste0("tcr_results/", s))
-# })
-# names(all_results) <- names(samples)
+# results <- run_tcr_pipeline_batch(
+#   sample_list = samples,
+#   output_dir  = "tcr_results_batch",
+#   clone_def   = "TRB"
+# )
+#
+# # Per-sample independent processing (no cross-sample comparison):
+# # all_results <- lapply(names(samples), function(s) {
+# #   run_tcr_pipeline(samples[[s]], output_dir = paste0("tcr_results/", s))
+# # })
+# # names(all_results) <- names(samples)
 #
 # # For scRepertoire integration:
 # library(scRepertoire)

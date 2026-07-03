@@ -135,7 +135,35 @@ BiocManager::install("scRepertoire")
 
 ## Uso
 
-### Exemplo básico (uma amostra)
+### Uso programático (só o dataframe)
+
+Se você quer apenas o dataframe com os clones asignados — sem gerar PDFs, CSVs ou mensagens de log — use `assign_clones()`:
+
+```r
+source("tcr_clone_assignment.R")
+
+# Amostra única
+contigs <- load_contigs("vdj_t/outs/all_contig_annotations.csv")
+clones_df <- assign_clones(contigs, clone_def = "TRB")
+
+# head(clones_df)
+# # barcode | clone_id | n | cdr3_prim_TRB | v_gene_prim_TRB | ...
+
+# Múltiplas amostras
+contigs <- load_contigs_batch(list(
+  CTRL    = "ctrl/vdj_t/outs/all_contig_annotations.csv",
+  PATIENT = "patient/vdj_t/outs/all_contig_annotations.csv"
+))
+clones_df <- assign_clones(contigs, clone_def = "TRB")
+```
+
+| Função | Escreve arquivos? | Gera plots? | Retorna |
+|--------|-------------------|-------------|---------|
+| `assign_clones()` | ❌ | ❌ | `data.frame` com clone_id |
+| `run_tcr_pipeline()` | ✅ CSVs + PDFs | ✅ | `list` completo |
+| `run_tcr_pipeline_batch()` | ✅ CSVs + PDFs | ✅ | `list` + per-sample + overlap |
+
+### Pipeline completo (com outputs)
 
 ```r
 source("tcr_clone_assignment.R")
