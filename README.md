@@ -207,7 +207,7 @@ Both criteria must be met simultaneously.
 
 > **Important:** Excluded secondary chains are **not deleted** from the data. They are flagged. The primary chain is always retained for clone assignment regardless of dual-chain status.
 
-**The 10% threshold** comes from Afik et al. (2017), who showed that true dual-TCR cells typically express the secondary chain at ≥10% of the primary chain's level, while ambient RNA contamination produces ratios well below 10%.
+**The 10% threshold** is an empirical consensus widely used in single-cell VDJ analysis to distinguish genuine dual-chain expression from ambient RNA contamination. It is not tied to a single publication but reflects standard practice in the field (see e.g., 10x Genomics technical documentation and scRepertoire vignettes).
 
 ---
 
@@ -488,13 +488,13 @@ clonalOverlap(combined, method = "morisita")
 
 ## References
 
-- **Arstila et al. (1999)** *Science* 286:958–961. PMID: [10542143](https://pubmed.ncbi.nlm.nih.gov/10542143/) — Foundational estimate of human TCRαβ diversity
+- **Arstila et al. (1999)** *Science* 286:958–961. PMID: [10542151](https://pubmed.ncbi.nlm.nih.gov/10542151/) — A direct estimate of the human αβ TCR diversity
 - **Tuovinen, Salminen & Arstila (2006)** *Blood* 108(13):4063–4070. PMID: [16926292](https://pubmed.ncbi.nlm.nih.gov/16926292/) — 10–30% of mature T cells express two TCR chains
 - **Dupic et al. (2019)** *PLoS Comput Biol* 15(3):e1006874. PMID: [30830899](https://pubmed.ncbi.nlm.nih.gov/30830899/) — Quantitative model: ~35% of cells express both α chains
 - **Schuldt et al. (2015)** *PLoS One* 10(12):e0145762. PMID: [26693713](https://pubmed.ncbi.nlm.nih.gov/26693713/) — Dual-TCRα outnumbers dual-TCRβ by ~10:1
 - **Schuldt et al. (2017)** *J Immunol* 199(1):33–38. PMID: [28539428](https://pubmed.ncbi.nlm.nih.gov/28539428/) — Dual-TCRα as autoimmune hazard
 - **Schuldt & Binstadt (2019)** *J Immunol* 202(3):637–644. PMID: [30670579](https://pubmed.ncbi.nlm.nih.gov/30670579/) — Comprehensive review on dual-TCR biology
-- **Afik et al. (2017)** *Nat Commun* 8:14581. PMID: [28252002](https://pubmed.ncbi.nlm.nih.gov/28252002/) — UMI ratio threshold for targeting recovery (source of the 10% threshold)
+- **Afik et al. (2017)** *Nucleic Acids Res* 45(16):e148. PMID: [28934479](https://pubmed.ncbi.nlm.nih.gov/28934479/) — TRAPeS: TCR reconstruction from scRNA-seq; links CDR3 length to T cell differentiation state
 
 ---
 
