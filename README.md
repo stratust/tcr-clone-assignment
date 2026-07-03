@@ -149,12 +149,17 @@ clones_df <- assign_clones(contigs, clone_def = "TRB")
 # head(clones_df)
 # # barcode | clone_id | n | cdr3_prim_TRB | v_gene_prim_TRB | ...
 
-# Múltiplas amostras
+# Múltiplas amostras — barcodes ganham prefixo com o nome da amostra
+# Ex: barcode "AAACCTGAGAAACCGC-1" vira "CTRL_AAACCTGAGAAACCGC-1"
 contigs <- load_contigs_batch(list(
   CTRL    = "ctrl/vdj_t/outs/all_contig_annotations.csv",
   PATIENT = "patient/vdj_t/outs/all_contig_annotations.csv"
 ))
 clones_df <- assign_clones(contigs, clone_def = "TRB")
+
+# O nome da lista (names da lista) vira o prefixo do barcode + sample column
+# "CTRL" → barcode = "CTRL_AAACCTGAGAAACCGC-1", sample = "CTRL"
+# "PATIENT" → barcode = "PATIENT_AAACCTGAGAAACCGC-1", sample = "PATIENT"
 ```
 
 | Função | Escreve arquivos? | Gera plots? | Retorna |
