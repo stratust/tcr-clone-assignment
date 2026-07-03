@@ -209,16 +209,32 @@ build_clones <- function(primary, secondary_filtered, clone_definition = "TRB") 
     select(-clone_key)
 
   # Add chain pairing status and dual-chain annotation
+  # chain_pairing describes which primary chains were recovered
+  # has_dual_* flags whether a trusted secondary chain also exists
   prim_wide <- prim_wide %>%
     mutate(
-      chain_pairing = case_when(
-        !is.na(cdr3_prim_TRA) & !is.na(cdr3_prim_TRB) ~ "alpha+beta",
-        !is.na(cdr3_prim_TRA) & is.na(cdr3_prim_TRB)  ~ "alpha_only",
-        is.na(cdr3_prim_TRA) & !is.na(cdr3_prim_TRB)  ~ "beta_only",
-        TRUE                                          ~ "none"
-      ),
+      has_alpha = !is.na(cdr3_prim_TRA),
+      has_beta  = !is.na(cdr3_prim_TRB),
       has_dual_alpha = barcode %in% secondary_filtered$barcode[secondary_filtered$chain_sec == "TRA" & secondary_filtered$trusted_dual],
-      has_dual_beta  = barcode %in% secondary_filtered$barcode[secondary_filtered$chain_sec == "TRB" & secondary_filtered$trusted_dual]
+      has_dual_beta  = barcode %in% secondary_filtered$barcode[secondary_filtered$chain_sec == "TRB" & secondary_filtered$trusted_dual],
+      chain_pairing = case_when(
+        has_alpha & has_beta  ~ "alpha+beta",
+        has_alpha & !has_beta ~ "alpha_only",
+        !has_alpha & has_beta ~ "beta_only",
+        TRUE                  ~ "none"
+      ),
+      # Full TCR phenotype: primary chains + dual chains
+      tcr_phenotype = case_when(
+        has_alpha & has_beta & has_dual_alpha & has_dual_beta  ~ "dual_alpha+dual_beta",
+        has_alpha & has_beta & has_dual_alpha                 ~ "dual_alpha+beta",
+        has_alpha & has_beta & has_dual_beta                  ~ "alpha+dual_beta",
+        has_alpha & has_beta                                  ~ "alpha+beta",
+        has_alpha & has_dual_alpha                            ~ "dual_alpha_only",
+        has_alpha                                             ~ "alpha_only",
+        has_beta & has_dual_beta                              ~ "dual_beta_only",
+        has_beta                                              ~ "beta_only",
+        TRUE                                                  ~ "none"
+      )
     )
 
   message(sprintf("  %d clonotypes from %d cells (top clone: %d cells)",
@@ -254,6 +270,22 @@ qc_summary <- function(cells_df, n_chains, clonotypes) {
   message(sprintf("  Cells with alpha only:   %d (%.1f%%)", n_alpha_only, n_alpha_only/n_total_cells*100))
   message(sprintf("  Cells with beta only:    %d (%.1f%%)", n_beta_only, n_beta_only/n_total_cells*100))
   message("")
+
+  # Full TCR phenotype breakdown (primary + dual chains)
+  if ("tcr_phenotype" %in% colnames(cells_df)) {
+    message("=== TCR phenotype (primary + dual chains) ===")
+    pheno_stats <- table(factor(cells_df$tcr_phenotype, levels = c(
+      "alpha+beta", "dual_alpha+beta", "alpha+dual_beta", "dual_alpha+dual_beta",
+      "alpha_only", "dual_alpha_only", "beta_only", "dual_beta_only", "none"
+    )))
+    for (ph in names(pheno_stats)) {
+      if (pheno_stats[ph] > 0) {
+        message(sprintf("  %-22s  %d (%.1f%%)", ph, pheno_stats[ph],
+                        pheno_stats[ph]/n_total_cells*100))
+      }
+    }
+    message("")
+  }
 
   # Dual-chain stats
   message("=== Dual-chain prevalence ===")

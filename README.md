@@ -303,7 +303,8 @@ The output is in **wide format**: one row per cell barcode, with primary TRA and
 | `n` | int | Number of cells in this clone |
 | `has_dual_alpha` | lgl | `TRUE` if this cell has a trusted secondary TRA chain (dual-TCRα) |
 | `has_dual_beta` | lgl | `TRUE` if this cell has a trusted secondary TRB chain (dual-TCRβ) |
-| `chain_pairing` | chr | Chain recovery status: `alpha+beta`, `alpha_only`, `beta_only`, or `none` |
+| `chain_pairing` | chr | Which primary chains were recovered: `alpha+beta`, `alpha_only`, `beta_only`, or `none` |
+| `tcr_phenotype` | chr | Full TCR phenotype including dual chains: `alpha+beta`, `dual_alpha+beta`, `alpha+dual_beta`, `dual_alpha+dual_beta`, `alpha_only`, `dual_alpha_only`, `beta_only`, `dual_beta_only`, `none` |
 
 ### What each column tells you
 
@@ -313,35 +314,57 @@ The output is in **wide format**: one row per cell barcode, with primary TRA and
 - **`has_dual_alpha` / `has_dual_beta`** — Whether this cell has a **trusted** second chain. These cells are biologically interesting — they express two different TCRs and may have altered specificity.
 - **`umis_prim_*`** — Expression level of each chain. Useful for quality assessment: very low UMIs may indicate poor recovery.
 
-### Single-chain cells (α-only or β-only)
+### Cell TCR phenotypes: chain recovery and dual-TCR
 
-Not every cell barcode has both TRA and TRB recovered. This is normal and expected in single-cell VDJ data — the TCR mRNA capture is stochastic, and one chain may be missed due to low expression, drop-out, or library complexity. The `chain_pairing` column classifies each cell:
+Not every cell barcode has a clean α+β pair. The TCR mRNA capture in single-cell VDJ is stochastic — chains can be missed due to drop-out, low expression, or library complexity. Additionally, some cells genuinely carry **two productive α chains** or (rarely) **two β chains** (see [Dual-Chain Problem](#the-dual-chain-problem)).
 
-| `chain_pairing` | Meaning | Typical frequency |
-|-----------------|---------|-------------------|
-| `alpha+beta` | Both TRA and TRB primary chains recovered | ~70–85% |
-| `alpha_only` | Only TRA recovered (TRB not captured) | ~5–15% |
-| `beta_only` | Only TRB recovered (TRA not captured) | ~5–15% |
-| `none` | Neither recovered (should not occur after filtering) | ~0% |
+The output has two columns to describe this:
 
-#### How the pipeline handles single-chain cells
+- **`chain_pairing`** — Which **primary** chains were recovered (simple view)
+- **`tcr_phenotype`** — Full phenotype including trusted dual chains (complete view)
 
-**They are NOT discarded.** Single-chain cells remain in the output with `NA` in the missing chain's columns. However, their clone assignment depends on the `clone_def` mode:
+#### All possible `tcr_phenotype` values
 
-| Mode | α-only cell | β-only cell |
-|------|-------------|-------------|
-| `TRB` *(default)* | Cannot form clone key from TRB → assigned unique singleton clone (`SINGLE_TRA_<barcode>`) | Clone assigned normally from TRB CDR3 + V + J |
-| `TRA_TRB` | Clone assigned from TRA only (prefixed `TRA_ONLY_`) | Clone assigned from TRB only (prefixed `TRB_ONLY_`) |
-| `TRB_cdr3_only` | Cannot form clone key from TRB → assigned unique singleton clone | Clone assigned normally from TRB CDR3 aa |
+| `tcr_phenotype` | Primary chains | Dual chains | Meaning | Typical frequency |
+|-----------------|----------------|-------------|---------|-------------------|
+| `alpha+beta` | 1α + 1β | — | Standard paired TCR | ~50–65% |
+| `dual_alpha+beta` | 1α + 1β | +1α | Two α chains + one β (most common dual-TCR) | ~15–25% |
+| `alpha+dual_beta` | 1α + 1β | +1β | One α + two β chains (rare) | ~1–3% |
+| `dual_alpha+dual_beta` | 1α + 1β | +1α +1β | Two α + two β (very rare, possible doublet) | <1% |
+| `alpha_only` | 1α | — | Only α recovered, no β | ~5–10% |
+| `dual_alpha_only` | 1α | +1α | Two α chains, no β recovered | ~2–5% |
+| `beta_only` | 1β | — | Only β recovered, no α | ~5–10% |
+| `dual_beta_only` | 1β | +1β | Two β chains, no α recovered | <1% |
+| `none` | — | — | Neither recovered (should not occur) | ~0% |
 
-**Key point:** In the default `TRB` mode, α-only cells are each assigned their own unique singleton clone. This is the correct behavior — without a TRB CDR3, we cannot determine their clonotype. They are retained for completeness but should typically be excluded from clonotype analysis:
+#### How each phenotype is handled for clone assignment
+
+**They are ALL retained in the output.** No cell is discarded for having missing or extra chains. The clone assignment logic:
+
+| Phenotype | `TRB` mode | `TRA_TRB` mode |
+|-----------|------------|-----------------|
+| `alpha+beta` | Clone from TRB CDR3+V+J | Clone from TRA+TRB combo |
+| `dual_alpha+beta` | Clone from TRB (primary); dual α annotated | Clone from TRA (primary)+TRB |
+| `alpha+dual_beta` | Clone from TRB (primary); dual β annotated | Clone from TRA+TRB (primary) |
+| `alpha_only` | Unique singleton (no TRB to define clone) | Clone from TRA CDR3+V |
+| `dual_alpha_only` | Unique singleton (no TRB) | Clone from TRA (primary) |
+| `beta_only` | Clone from TRB CDR3+V+J normally | Clone from TRB CDR3+V |
+| `dual_beta_only` | Clone from TRB (primary) normally | Clone from TRB (primary) |
+
+**Key point:** In the default `TRB` mode, any cell without a TRB chain (α-only, dual-α-only) gets its own unique singleton clone — we cannot assign a clonotype without CDR3β. Filter as needed:
 
 ```r
-# Filter to only cells with paired α+β for clonotype analysis
+# Only cells with paired α+β for clonotype analysis
 paired <- clones_df %>% filter(chain_pairing == "alpha+beta")
 
-# Or filter to only cells with TRB (includes α-only excluded, β-only included)
+# Only cells with TRB recovered (includes beta_only and alpha+beta)
 has_trb <- clones_df %>% filter(!is.na(cdr3_prim_TRB))
+
+# Only cells with at least one dual chain
+dual_tcr <- clones_df %>% filter(has_dual_alpha | has_dual_beta)
+
+# Exclude possible doublets (dual α + dual β)
+clean <- clones_df %>% filter(tcr_phenotype != "dual_alpha+dual_beta")
 ```
 
 > **Bug fix note:** In earlier versions, all α-only cells were incorrectly grouped into a single clone (key `"NA|NA|NA"`), making them appear as one giant clonotype. This is now fixed — each receives a unique barcode-based key.
