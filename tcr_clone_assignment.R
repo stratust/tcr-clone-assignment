@@ -13,20 +13,32 @@ library(igraph)
 # 1. LOAD AND FILTER CONTIGS
 # =============================================================================
 
-load_contigs <- function(all_contig_csv,
-                         filtered_contig_csv = NULL,
+load_contigs <- function(contig_csv,
                          min_umi = 5,
                          min_read = 20) {
-  message(">>> Loading all_contig_annotations.csv...")
+  # contig_csv: path to filtered_contig_annotations.csv (Cell Ranger multi/vdj)
+  #             or all_contig_annotations.csv (Cell Ranger vdj only)
+  message(">>> Loading contig annotations: ", contig_csv)
 
-  contigs <- read.csv(all_contig_csv, stringsAsFactors = FALSE)
+  contigs <- read.csv(contig_csv, stringsAsFactors = FALSE)
+
+  message(sprintf("  Raw: %d rows, columns: %s",
+                  nrow(contigs), paste(colnames(contigs), collapse = ", ")))
 
   # Basic filtering: cell, high confidence, productive, TRA/TRB only
+  # Cell Ranger multi/vdj may encode booleans as TRUE/FALSE, True/False, or true/false
+  to_bool <- function(x) {
+    if (is.logical(x)) return(x)
+    tolower(as.character(x)) %in% c("true", "1", "yes")
+  }
+
   contigs <- contigs %>%
-    filter(is_cell == TRUE) %>%
-    filter(high_confidence == TRUE) %>%
-    filter(productive == TRUE) %>%
+    filter(to_bool(is_cell)) %>%
+    filter(to_bool(high_confidence)) %>%
+    filter(to_bool(productive)) %>%
     filter(chain %in% c("TRA", "TRB"))
+
+  message(sprintf("  After filters: %d rows", nrow(contigs)))
 
   # Quality filter: minimum UMI and read counts
   # Note: adjust column names — Cell Ranger uses 'umis' and 'reads'
@@ -364,9 +376,9 @@ to_screpertoire <- function(contigs) {
 load_contigs_batch <- function(sample_list,
                                min_umi = 5,
                                min_read = 20) {
-  # sample_list: named list of paths to all_contig_annotations.csv
-  #   e.g. list(CTRL = "ctrl/vdj_t/outs/all_contig_annotations.csv",
-  #             PATIENT = "patient/vdj_t/outs/all_contig_annotations.csv")
+  # sample_list: named list of paths to filtered_contig_annotations.csv
+  #   e.g. list(CTRL = "ctrl/vdj_t/outs/filtered_contig_annotations.csv",
+  #             PATIENT = "patient/vdj_t/outs/filtered_contig_annotations.csv")
   #
   # Returns a single data.frame with barcodes prefixed by sample ID
   # to avoid collisions when multiple samples share the same 10x whitelist.
@@ -378,12 +390,21 @@ load_contigs_batch <- function(sample_list,
 
     df <- read.csv(sample_list[[sample_id]], stringsAsFactors = FALSE)
 
-    # Basic filtering
+    message(sprintf("    Raw: %d rows", nrow(df)))
+
+    # Basic filtering (robust to string/logical boolean encoding)
+    to_bool <- function(x) {
+      if (is.logical(x)) return(x)
+      tolower(as.character(x)) %in% c("true", "1", "yes")
+    }
+
     df <- df %>%
-      filter(is_cell == TRUE) %>%
-      filter(high_confidence == TRUE) %>%
-      filter(productive == TRUE) %>%
+      filter(to_bool(is_cell)) %>%
+      filter(to_bool(high_confidence)) %>%
+      filter(to_bool(productive)) %>%
       filter(chain %in% c("TRA", "TRB"))
+
+    message(sprintf("    After filters: %d rows", nrow(df)))
 
     # Normalize UMI/read column names
     if ("umis" %in% colnames(df)) {
@@ -445,7 +466,7 @@ assign_clones <- function(contigs,
 # =============================================================================
 
 run_tcr_pipeline <- function(
-    all_contig_csv,
+    contig_csv,
     output_dir     = "tcr_results",
     clone_def      = "TRB",
     min_umi        = 5,
@@ -463,7 +484,7 @@ run_tcr_pipeline <- function(
   message("")
 
   # Step 1: Load
-  contigs <- load_contigs(all_contig_csv,
+  contigs <- load_contigs(contig_csv,
                           min_umi = min_umi,
                           min_read = min_read)
 
@@ -542,8 +563,8 @@ run_tcr_pipeline_batch <- function(
     make_plots     = TRUE
 ) {
   # sample_list: named list where names = sample IDs, values = paths to CSVs
-  #   e.g. list(CTRL = "ctrl/outs/all_contig_annotations.csv",
-  #             PATIENT = "patient/outs/all_contig_annotations.csv")
+  #   e.g. list(CTRL = "ctrl/outs/filtered_contig_annotations.csv",
+  #             PATIENT = "patient/outs/filtered_contig_annotations.csv")
   #
   # Combines all samples into a single analysis with unique barcodes
   # (prefixed by sample ID), enabling cross-sample clonotype comparison.
