@@ -182,8 +182,8 @@ results <- run_tcr_pipeline(
   all_contig_csv = "vdj_t/outs/all_contig_annotations.csv",
   output_dir     = "tcr_results",
   clone_def      = "TRB",     # "TRB", "TRA_TRB", or "TRB_cdr3_only"
-  min_umi        = 3,
-  min_read       = 10,
+  min_umi        = 5,         # minimum UMI per contig
+  min_read       = 20,        # minimum reads per contig
   min_ratio      = 0.1,       # secondary chain ≥ 10% of primary UMI
   min_abs_umi    = 5,         # secondary chain ≥ 5 absolute UMIs
   make_plots     = TRUE
@@ -249,8 +249,8 @@ tcr_results/
 | Parameter | Default | Description | When to Adjust |
 |-----------|---------|-------------|----------------|
 | `clone_def` | `"TRB"` | Clone definition | `"TRA_TRB"` for more stringency; `"TRB_cdr3_only"` for exploration |
-| `min_umi` | `3` | Minimum UMI per contig | Increase in high-complexity libraries |
-| `min_read` | `10` | Minimum reads per contig | Increase if suspecting spurious contigs |
+| `min_umi` | `5` | Minimum UMI per contig | Lower (3) for low-input libraries; raise (10) for high-complexity |
+| `min_read` | `20` | Minimum reads per contig | Lower (10) if shallow sequencing; raise (50) for extra stringency |
 | `min_ratio` | `0.1` | Minimum UMI ratio (sec/prim) | `0.05` to capture more dual-TCRs; `0.2` for more stringency |
 | `min_abs_umi` | `5` | Minimum absolute UMI on secondary chain | Increase to reduce false positives |
 

@@ -15,8 +15,8 @@ library(igraph)
 
 load_contigs <- function(all_contig_csv,
                          filtered_contig_csv = NULL,
-                         min_umi = 3,
-                         min_read = 10) {
+                         min_umi = 5,
+                         min_read = 20) {
   message(">>> Loading all_contig_annotations.csv...")
 
   contigs <- read.csv(all_contig_csv, stringsAsFactors = FALSE)
@@ -362,8 +362,8 @@ to_screpertoire <- function(contigs) {
 # =============================================================================
 
 load_contigs_batch <- function(sample_list,
-                               min_umi = 3,
-                               min_read = 10) {
+                               min_umi = 5,
+                               min_read = 20) {
   # sample_list: named list of paths to all_contig_annotations.csv
   #   e.g. list(CTRL = "ctrl/vdj_t/outs/all_contig_annotations.csv",
   #             PATIENT = "patient/vdj_t/outs/all_contig_annotations.csv")
@@ -448,8 +448,8 @@ run_tcr_pipeline <- function(
     all_contig_csv,
     output_dir     = "tcr_results",
     clone_def      = "TRB",
-    min_umi        = 3,
-    min_read       = 10,
+    min_umi        = 5,
+    min_read       = 20,
     min_ratio      = 0.1,
     min_abs_umi    = 5,
     make_plots     = TRUE
@@ -535,8 +535,8 @@ run_tcr_pipeline_batch <- function(
     sample_list,
     output_dir     = "tcr_results_batch",
     clone_def      = "TRB",
-    min_umi        = 3,
-    min_read       = 10,
+    min_umi        = 5,
+    min_read       = 20,
     min_ratio      = 0.1,
     min_abs_umi    = 5,
     make_plots     = TRUE
@@ -720,8 +720,8 @@ run_tcr_pipeline_batch <- function(
 #   all_contig_csv = "vdj_t/outs/all_contig_annotations.csv",
 #   output_dir     = "tcr_results",
 #   clone_def      = "TRB",     # "TRB", "TRA_TRB", or "TRB_cdr3_only"
-#   min_umi        = 3,
-#   min_read       = 10,
+#   min_umi        = 5,
+#   min_read       = 20,
 #   min_ratio      = 0.1,       # secondary chain must be ≥10% of primary UMI
 #   min_abs_umi    = 5,
 #   make_plots     = TRUE
