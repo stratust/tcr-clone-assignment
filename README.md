@@ -24,12 +24,12 @@ During thymic selection, the **TCRα locus** rearranges on both chromosomes. Unl
 These dual-TCR cells are biologically relevant: they may have altered antigen affinity, participate in cross-reactivity, and have been implicated in autoimmunity and tolerance.
 
 **References (verified via PubMed):**
-- Arstila et al. (1999) *Science* 286:958-961 — foundational estimate of human TCRαβ diversity
-- Tuovinen, Salminen & Arstila (2006) *Blood* 108:1601 (PMID: 16926292) — 10-30% of mature T cells express two TCR chains
+- Arstila et al. (1999) *Science* 286:958-961 (PMID: 10542143) — foundational estimate of human TCRαβ diversity
+- Tuovinen, Salminen & Arstila (2006) *Blood* 108(13):4063-4070 (PMID: 16926292) — 10-30% of mature T cells express two TCR chains
 - Dupic et al. (2019) *PLoS Comput Biol* 15(3):e1006874 (PMID: 30830899) — quantitative model: ~35% of cells express both α chains
-- Schuldt et al. (2015) *J Immunol* (PMID: 26693713) — dual-TCRα outnumbers dual-TCRβ by ~10:1
+- Schuldt et al. (2015) *PLoS One* 10(12):e0145762 (PMID: 26693713) — dual-TCRα outnumbers dual-TCRβ by ~10:1
 - Schuldt et al. (2017) *J Immunol* 199(1):33-38 (PMID: 28539428) — dual-TCRα as autoimmune hazard via impaired Treg generation
-- Schuldt & Binstadt (2019) *Front Immunol* (PMID: 30670579) — comprehensive review on dual-TCR biology
+- Schuldt & Binstadt (2019) *J Immunol* 202(3):637-644 (PMID: 30670579) — comprehensive review on dual-TCR biology
 
 #### 2. Technical Artifacts
 
