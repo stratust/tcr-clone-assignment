@@ -176,24 +176,27 @@ build_clones <- function(primary, secondary_filtered, clone_definition = "TRB") 
   if (clone_definition == "TRB") {
     # Clone = TRB CDR3 amino acid + V + J gene (standard)
     prim_wide <- prim_wide %>%
-      mutate(clone_key = paste(
-        cdr3_prim_TRB %||% "NA",
-        v_gene_prim_TRB %||% "NA",
-        j_gene_prim_TRB %||% "NA",
-        sep = "|"
+      mutate(clone_key = case_when(
+        is.na(cdr3_prim_TRB) ~ paste0("SINGLE_TRA_", barcode),
+        TRUE ~ paste(cdr3_prim_TRB, v_gene_prim_TRB, j_gene_prim_TRB, sep = "|")
       ))
   } else if (clone_definition == "TRA_TRB") {
     # Clone = TRA + TRB CDR3 combo (more stringent)
     prim_wide <- prim_wide %>%
-      mutate(clone_key = paste(
-        cdr3_prim_TRA %||% "NA", v_gene_prim_TRA %||% "NA",
-        cdr3_prim_TRB %||% "NA", v_gene_prim_TRB %||% "NA",
-        sep = "|"
+      mutate(clone_key = case_when(
+        is.na(cdr3_prim_TRB) & is.na(cdr3_prim_TRA) ~ paste0("SINGLE_NONE_", barcode),
+        is.na(cdr3_prim_TRB) ~ paste0("TRA_ONLY_", cdr3_prim_TRA, "|", v_gene_prim_TRA),
+        is.na(cdr3_prim_TRA) ~ paste0("TRB_ONLY_", cdr3_prim_TRB, "|", v_gene_prim_TRB),
+        TRUE ~ paste(cdr3_prim_TRA, v_gene_prim_TRA,
+                     cdr3_prim_TRB, v_gene_prim_TRB, sep = "|")
       ))
   } else if (clone_definition == "TRB_cdr3_only") {
     # Clone = TRB CDR3 aa only (most permissive)
     prim_wide <- prim_wide %>%
-      mutate(clone_key = cdr3_prim_TRB %||% "NA")
+      mutate(clone_key = case_when(
+        is.na(cdr3_prim_TRB) ~ paste0("SINGLE_TRA_", barcode),
+        TRUE ~ cdr3_prim_TRB
+      ))
   }
 
   # Assign clone IDs (ordered by frequency)
@@ -205,9 +208,15 @@ build_clones <- function(primary, secondary_filtered, clone_definition = "TRB") 
     left_join(clone_freq, by = "clone_key") %>%
     select(-clone_key)
 
-  # Add dual-chain annotation
+  # Add chain pairing status and dual-chain annotation
   prim_wide <- prim_wide %>%
     mutate(
+      chain_pairing = case_when(
+        !is.na(cdr3_prim_TRA) & !is.na(cdr3_prim_TRB) ~ "alpha+beta",
+        !is.na(cdr3_prim_TRA) & is.na(cdr3_prim_TRB)  ~ "alpha_only",
+        is.na(cdr3_prim_TRA) & !is.na(cdr3_prim_TRB)  ~ "beta_only",
+        TRUE                                          ~ "none"
+      ),
       has_dual_alpha = barcode %in% secondary_filtered$barcode[secondary_filtered$chain_sec == "TRA" & secondary_filtered$trusted_dual],
       has_dual_beta  = barcode %in% secondary_filtered$barcode[secondary_filtered$chain_sec == "TRB" & secondary_filtered$trusted_dual]
     )

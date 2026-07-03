@@ -303,6 +303,7 @@ The output is in **wide format**: one row per cell barcode, with primary TRA and
 | `n` | int | Number of cells in this clone |
 | `has_dual_alpha` | lgl | `TRUE` if this cell has a trusted secondary TRA chain (dual-TCRα) |
 | `has_dual_beta` | lgl | `TRUE` if this cell has a trusted secondary TRB chain (dual-TCRβ) |
+| `chain_pairing` | chr | Chain recovery status: `alpha+beta`, `alpha_only`, `beta_only`, or `none` |
 
 ### What each column tells you
 
@@ -311,6 +312,39 @@ The output is in **wide format**: one row per cell barcode, with primary TRA and
 - **`cdr3_prim_TRB`** — The CDR3 amino acid sequence of the β chain. This is the key specificity determinant. Two cells with identical CDR3β (and same Vβ/Jβ) are the same clone.
 - **`has_dual_alpha` / `has_dual_beta`** — Whether this cell has a **trusted** second chain. These cells are biologically interesting — they express two different TCRs and may have altered specificity.
 - **`umis_prim_*`** — Expression level of each chain. Useful for quality assessment: very low UMIs may indicate poor recovery.
+
+### Single-chain cells (α-only or β-only)
+
+Not every cell barcode has both TRA and TRB recovered. This is normal and expected in single-cell VDJ data — the TCR mRNA capture is stochastic, and one chain may be missed due to low expression, drop-out, or library complexity. The `chain_pairing` column classifies each cell:
+
+| `chain_pairing` | Meaning | Typical frequency |
+|-----------------|---------|-------------------|
+| `alpha+beta` | Both TRA and TRB primary chains recovered | ~70–85% |
+| `alpha_only` | Only TRA recovered (TRB not captured) | ~5–15% |
+| `beta_only` | Only TRB recovered (TRA not captured) | ~5–15% |
+| `none` | Neither recovered (should not occur after filtering) | ~0% |
+
+#### How the pipeline handles single-chain cells
+
+**They are NOT discarded.** Single-chain cells remain in the output with `NA` in the missing chain's columns. However, their clone assignment depends on the `clone_def` mode:
+
+| Mode | α-only cell | β-only cell |
+|------|-------------|-------------|
+| `TRB` *(default)* | Cannot form clone key from TRB → assigned unique singleton clone (`SINGLE_TRA_<barcode>`) | Clone assigned normally from TRB CDR3 + V + J |
+| `TRA_TRB` | Clone assigned from TRA only (prefixed `TRA_ONLY_`) | Clone assigned from TRB only (prefixed `TRB_ONLY_`) |
+| `TRB_cdr3_only` | Cannot form clone key from TRB → assigned unique singleton clone | Clone assigned normally from TRB CDR3 aa |
+
+**Key point:** In the default `TRB` mode, α-only cells are each assigned their own unique singleton clone. This is the correct behavior — without a TRB CDR3, we cannot determine their clonotype. They are retained for completeness but should typically be excluded from clonotype analysis:
+
+```r
+# Filter to only cells with paired α+β for clonotype analysis
+paired <- clones_df %>% filter(chain_pairing == "alpha+beta")
+
+# Or filter to only cells with TRB (includes α-only excluded, β-only included)
+has_trb <- clones_df %>% filter(!is.na(cdr3_prim_TRB))
+```
+
+> **Bug fix note:** In earlier versions, all α-only cells were incorrectly grouped into a single clone (key `"NA|NA|NA"`), making them appear as one giant clonotype. This is now fixed — each receives a unique barcode-based key.
 
 ### What is NOT in the output (and why)
 
