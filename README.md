@@ -19,14 +19,17 @@ Em single-cell VDJ sequencing, frequentemente observamos **mais de uma cadeia α
 Durante a seleção tímica, o rearranjo do **locus TCRα** ocorre em ambos os cromossomos. Diferentemente do TCRβ — que tem silenciamento alélico rigoroso —, o TCRα frequentemente escapa do *feedback* negativo antes que um alelo seja silenciado. Resultado:
 
 - **~25-35% das T cells maduras** carregam **duas cadeias α produtivas** (dual-TCRα)
-- **~5-10%** carregam **duas cadeias β produtivas** (dual-TCRβ, mais raro)
+- **~3%** carregam **duas cadeias β produtivas** (dual-TCRβ, raro — ratio α:β ≈ 10:1)
 
 Essas células dual-TCR são biologicamente relevantes: podem ter afinidade alterada por antígenos, participar em respostas cruzadas, e estão implicadas em autoimunidade e tolerância.
 
-**Referências:**
-- Brady et al. (2004) *J Immunol* — caracterização de dual-TCRα em T cells maduras
-- Dupic et al. (2019) *PNAS* — modelo quantitativo de diversidade TCR com inclusão alélica
-- Schuldt et al. (2017) — dual-TCR e autoimunidade
+**Referências (verificadas via PubMed):**
+- Arstila et al. (1999) *Science* 286:958-961 — estimativa fundamental da diversidade TCRαβ humana
+- Tuovinen, Salminen & Arstila (2006) *Blood* 108:1601 (PMID: 16926292) — 10-30% de T cells maduras expressam duas cadeias TCR
+- Dupic et al. (2019) *PLoS Comput Biol* 15(3):e1006874 (PMID: 30830899) — modelo quantitativo: ~35% das cells expressam ambas as cadeias α
+- Schuldt et al. (2015) *J Immunol* (PMID: 26693713) — dual-TCRα supera dual-TCRβ em ~10:1
+- Schuldt et al. (2017) *J Immunol* 199(1):33-38 (PMID: 28539428) — dual-TCRα como risco autoimune via limitação de Treg
+- Schuldt & Binstadt (2019) *Front Immunol* (PMID: 30670579) — revisão abrangente sobre dual-TCR
 
 #### 2. Artefatos técnicos
 
@@ -104,7 +107,7 @@ O pipeline suporta três modos de definição de clone:
 ### Métricas de QC calculadas
 
 - **Dual-α rate**: % de cells com 2+ cadeias α produtivas (esperado: 25-35%)
-- **Dual-β rate**: % de cells com 2+ cadeias β produtivas (esperado: 5-10%)
+- **Dual-β rate**: % de cells com 2+ cadeias β produtivas (esperado: ~3%)
 - **Shannon diversity index**: $H' = -\sum p_i \ln(p_i)$
 - **Pielou evenness**: $J' = H' / \ln(S)$, onde S = nº de clones
 - **Top 10 clone share**: % de cells pertencentes aos 10 maiores clones
