@@ -205,8 +205,7 @@ build_clones <- function(primary, secondary_filtered, clone_definition = "TRB") 
     mutate(clone_id = paste0("clon", row_number()))
 
   prim_wide <- prim_wide %>%
-    left_join(clone_freq, by = "clone_key") %>%
-    select(-clone_key)
+    left_join(clone_freq, by = "clone_key")
 
   # Add chain pairing status and dual-chain annotation
   # chain_pairing describes which primary chains were recovered
