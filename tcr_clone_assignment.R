@@ -202,7 +202,7 @@ build_clones <- function(primary, secondary_filtered, clone_definition = "TRB") 
   # Assign clone IDs (ordered by frequency)
   clone_freq <- prim_wide %>%
     count(clone_key, sort = TRUE) %>%
-    mutate(clone_id = paste0("clon", row_number()))
+    mutate(clone_id = as.character(row_number()))
 
   prim_wide <- prim_wide %>%
     left_join(clone_freq, by = "clone_key")
